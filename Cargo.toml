@@ -1,0 +1,13 @@
+[package]
+name = "marching-cubes"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arrayvec = "0.7.6"
+bevy = { version = "0.15.3", features = ["dynamic_linking"] }
+bevy_egui = "0.33.0"
+bytemuck = "1.21.0"
+log = "0.4.26"
+wgpu-core = { version = "23.0.1", features = ["vulkan"] }
+wgpu-hal = { version = "23.0.1", features = ["vulkan"] }
