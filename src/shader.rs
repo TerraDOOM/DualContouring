@@ -480,8 +480,6 @@ fn attempt_mesh_upload(
         vtx.resize(counts.vtx as usize, VertexInfo::default());
         idx.resize(counts.idx as usize, 0);
 
-        log::info!("vtx.len() = {} idx.len() = {}", vtx.len(), idx.len());
-
         let mut vtx_new = Vec::new();
         let mut uv = Vec::new();
 
@@ -539,6 +537,7 @@ impl Plugin for DualContouringPlugin {
 
 enum ContouringState {
     Loading,
+    Error,
     Done,
 }
 
@@ -553,6 +552,7 @@ impl render_graph::Node for ContouringNode {
 
         // if the corresponding pipeline has loaded, transition to the next stage
         match self.0 {
+            ContouringState::Error => return,
             ContouringState::Loading => {
                 let DualContouringPipeline {
                     sdf_pipeline,
@@ -576,13 +576,14 @@ impl render_graph::Node for ContouringNode {
                 ] {
                     match pipeline_cache.get_compute_pipeline_state(*pipeline) {
                         CPS::Ok(_) => {}
-                        CPS::Err(err) => match err {
-                            PipelineCacheError::ShaderNotLoaded(shader) => {
-                                panic!("shader not loaded: {}", shader)
-                            }
-                            _ => panic!("Initializing assets/shader:\n{err}"),
-                        },
-                        _ => done = false,
+                        CPS::Err(PipelineCacheError::ProcessShaderError(err)) => {
+                            self.0 = ContouringState::Error;
+                            done = false;
+                            log::error!("Error while initializing shader: {err}")
+                        }
+                        _ => {
+                            done = false;
+                        }
                     }
                 }
 
@@ -601,7 +602,7 @@ impl render_graph::Node for ContouringNode {
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         match self.0 {
-            ContouringState::Loading => return Ok(()),
+            ContouringState::Loading | ContouringState::Error => return Ok(()),
             _ => {}
         }
 

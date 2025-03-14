@@ -15,7 +15,7 @@ const VERTICES: array<vec3<u32>, 8> =
     );
 
 fn calc_vtx_pos(cell_pos: vec3<u32>) -> vec3<f32> {
-    return vec3(0.5, 0.5, 0.5);
+    return vec3(0.0);
 }
 
 fn sample(pos: vec3<u32>) -> f32 {
@@ -74,6 +74,8 @@ fn compute_vertices(input: ComputeInput) {
         textureStore(index_lookup, global_id, vec4(vtx_index, 0, 0, 0));
         write_vertex(vtx_index, vec3<f32>(global_id) + calc_vtx_pos(global_id));
     }
+
+    textureStore(debug_tex, global_id, vec4(0.0, f32(samples), 0.0, 0.0));
 }
 
 const AXES: array<vec3<u32>, 3> =
@@ -127,8 +129,6 @@ fn compute_edges(@builtin(global_invocation_id) global_id: vec3<u32>) {
             gen_face(global_id, i, winding);
         }
     }
-
-    textureStore(debug_tex, global_id, samples);
 }
 
 const OFFSETS_X: array<vec3<i32>, 4> =

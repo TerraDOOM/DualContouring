@@ -27,7 +27,7 @@ const AXES_SELECTION: array<vec3<u32>, 3> =
     array<vec3<u32>, 3>(
         vec3(0, 1, 2),
         vec3(1, 0, 2),
-        vec3(1, 2, 0),
+        vec3(2, 0, 1),
     );
 
 fn sample_grad(a: vec3<u32>, b: vec3<u32>, x: f32) -> vec3<f32> {
@@ -76,7 +76,7 @@ fn compute_adaptivity(
 ) {
     let vtx_id = wg_id.x;
     let vtx = vertex_buffer[vtx_id];
-    let vtx_pos = vec3<u32>(floor(vec3(vtx.x, vtx.y, vtx.z)));
+    let vtx_pos = vec3<u32>(vec3(vtx.x, vtx.y, vtx.z));
 
     let axis_id = invocation.x;
     let selection = AXES_SELECTION[axis_id];
@@ -108,6 +108,11 @@ fn compute_adaptivity(
 
     // how many planes we ended up with
     let n = atomicLoad(&n_edges);
+    let check = n > 0;
+    // all subgroups should have n > 0
+    let result = subgroupBallot(check);
+    let prev = textureLoad(debug_tex, vtx_pos);
+    textureStore(debug_tex, vtx_pos, vec4(f32(result.x), 0.0, 0.0, 0.0) + prev);
 
     let index = calc_index(wg_id);
 
@@ -121,17 +126,15 @@ fn compute_adaptivity(
         pos_calc += planes[i].pos;
     }
     pos_calc = pos_calc / f32(n);
-
     let final_pos = pos_calc + vec3<f32>(vtx_pos);
 
-    // this code is the same no matter what sooo we should be good
-    vertex_buffer[vtx_id].x = final_pos.x;
-    vertex_buffer[vtx_id].y = final_pos.y;
-    vertex_buffer[vtx_id].z = final_pos.z;
+    wg_vtx_pos = final_pos;
+
+    workgroupBarrier();
 
     // we only have 8 corners unfortunately, some of them are gonna
     // have to go
-    if index <= 8 && false {
+    if index <= 8 {
         let corner_pos = VERTICES[index];
 
         const N_ITER: i32 = 3;
@@ -149,9 +152,11 @@ fn compute_adaptivity(
             }
         }
 
+        workgroupBarrier();
         let final_pos = wg_vtx_pos + vec3<f32>(vtx_pos);
 
         // this code is the same no matter what sooo we should be good
+        // narrator voice: we were not good
         vertex_buffer[vtx_id].x = final_pos.x;
         vertex_buffer[vtx_id].y = final_pos.y;
         vertex_buffer[vtx_id].z = final_pos.z;
